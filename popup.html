@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Chat Exporter</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <h1>AI Chat Exporter</h1>
+      </div>
+      <p class="subtitle">Capture & Reuse AI Context</p>
+    </header>
+
+    <main>
+      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+        <button id="capture-chat-btn" class="primary-btn" style="flex: 1; padding: 12px 8px; font-size: 13px;">
+          <span class="icon">💬</span> Capture Chat Only
+        </button>
+        <button id="capture-full-btn" class="primary-btn" style="flex: 1; padding: 12px 8px; font-size: 13px; background: rgba(255,255,255,0.1); box-shadow: none;">
+          <span class="icon">📄</span> Capture Whole Webpage
+        </button>
+      </div>
+
+      <div class="capsules-section">
+        <div class="section-header">
+          <h2>Recent Capsules</h2>
+          <span class="badge" id="capsule-count">0</span>
+        </div>
+        <div id="capsules-list" class="capsules-list">
+          <div class="empty-state">No capsules saved yet.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
