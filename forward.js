@@ -60,36 +60,36 @@ Note to AI: Await the user's next instructions based on this context.`;
       }
 
       // ── RENDER FILE ATTACHMENTS ──
-      const fileContainer = document.getElementById('file-container') || (() => {
-        const div = document.createElement('div');
-        div.id = 'file-container';
-        div.style.cssText = 'padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px;';
-        imgContainer.parentNode.insertBefore(div, imgContainer.nextSibling);
-        return div;
-      })();
+      const fileSection = document.getElementById('file-section');
+      const fileContainer = document.getElementById('file-container');
+      const fileSectionLabel = document.getElementById('file-section-label');
 
       if (ctx.attachments && ctx.attachments.length > 0) {
-        const FILE_ICONS = { pdf:'\uD83D\uDCC4', csv:'\uD83D\uDCCA', doc:'\uD83D\uDCDD', docx:'\uD83D\uDCDD',
-          xls:'\uD83D\uDCCA', xlsx:'\uD83D\uDCCA', ppt:'\uD83D\uDCCA', pptx:'\uD83D\uDCCA',
-          txt:'\uD83D\uDCCB', json:'\uD83D\uDCCB', zip:'\uD83D\uDDC2', default:'\uD83D\uDCC1' };
-        const hdr = document.createElement('div');
-        hdr.style.cssText = 'width:100%;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;';
-        hdr.textContent = `Attached Files (${ctx.attachments.length})`;
-        fileContainer.appendChild(hdr);
+        const FILE_ICONS = {
+          pdf: '📄', csv: '📊', doc: '📝', docx: '📝',
+          xls: '📊', xlsx: '📊', ppt: '📊', pptx: '📊',
+          txt: '📋', json: '📋', xml: '📋', md: '📋',
+          zip: '🗂', py: '💻', js: '💻', ts: '💻',
+          mp3: '🎵', mp4: '🎬', mov: '🎬', wav: '🎵',
+          html: '🌐', default: '📁'
+        };
+
+        fileSectionLabel.textContent = `Attached Files (${ctx.attachments.length})`;
+        fileSection.style.display = 'block';
+        fileContainer.innerHTML = '';
 
         ctx.attachments.forEach(f => {
           const ext = (f.name.split('.').pop() || '').toLowerCase();
           const icon = FILE_ICONS[ext] || FILE_ICONS.default;
           const chip = document.createElement('div');
-          chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 12px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:default;';
-          chip.innerHTML = `<span>${icon}</span><span style="font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>`;
-          if (f.url) {
-            chip.title = f.url;
-            chip.style.cursor = 'pointer';
-            chip.addEventListener('click', () => window.open(f.url, '_blank'));
-          }
+          chip.className = 'file-chip' + (f.url ? ' clickable' : '');
+          chip.title = f.name + (f.url ? '\n' + f.url : '');
+          chip.textContent = icon + '  ' + f.name;
+          if (f.url) chip.addEventListener('click', () => window.open(f.url, '_blank'));
           fileContainer.appendChild(chip);
         });
+      } else {
+        fileSection.style.display = 'none';
       }
       
       // Try to auto-copy

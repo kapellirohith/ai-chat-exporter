@@ -125,6 +125,40 @@
       border: 1px solid var(--border);
       object-fit: cover;
     }
+    /* ── FILE CHIPS ── */
+    .file-section { margin: 12px 0 0; }
+    .file-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .file-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(139,92,246,0.12);
+      border: 1px solid rgba(139,92,246,0.35);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #c4b5fd;
+      cursor: default;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-chip:hover { background: rgba(139,92,246,0.25); }
+    .file-chip.clickable { cursor: pointer; }
     @media print {
       @page { margin: 1cm; }
       body { background: white; color: black; margin: 0; padding: 0; }
@@ -171,6 +205,10 @@
         </button>
       </div>
       <div class="images" id="image-container"></div>
+      <div class="file-section" id="file-section" style="display:none;">
+        <div class="file-section-label" id="file-section-label">Attached Files</div>
+        <div class="file-chips" id="file-container"></div>
+      </div>
       <div class="context-preview" id="preview">Loading context data...</div>
     </div>
   </div>
