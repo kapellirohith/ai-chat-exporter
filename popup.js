@@ -97,50 +97,51 @@ function extractContext(mode) {
     }
   });
 
-  // ── CAPTURE FILE ATTACHMENTS (PDF, CSV, DOCX, XLSX, TXT, PPTX etc.) ──
-  const FILE_EXTENSIONS = /\.(pdf|csv|docx?|xlsx?|pptx?|txt|json|xml|zip|mp3|mp4|mov|png|jpg|jpeg|gif|webp)(\?.*)?$/i;
+  // ── CAPTURE FILE ATTACHMENTS ──
+  // Strategy: scan ALL text nodes on page for filename patterns.
+  // This works regardless of ChatGPT/Claude/Gemini's dynamic class names.
+  const FILE_NAME_PATTERN = /\b([\w\-. ]+\.(pdf|csv|docx?|xlsx?|pptx?|txt|json|xml|zip|mp3|mp4|mov|wav|py|js|ts|html|md|rtf))\b/gi;
   const attachments = [];
+  const seenNames = new Set();
 
-  // 1. Grab any <a> links pointing to downloadable files
-  document.body.querySelectorAll('a[href]').forEach(a => {
-    const href = a.href;
-    const label = (a.textContent || a.getAttribute('download') || '').trim();
-    if (FILE_EXTENSIONS.test(href) || a.hasAttribute('download')) {
-      if (!attachments.find(f => f.url === href)) {
-        attachments.push({ name: label || href.split('/').pop(), url: href });
+  // Walk every text node in the page
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.textContent || '';
+    let match;
+    FILE_NAME_PATTERN.lastIndex = 0;
+    while ((match = FILE_NAME_PATTERN.exec(text)) !== null) {
+      const name = match[1].trim();
+      // Skip very short/generic names and duplicates
+      if (name.length > 3 && name.length < 120 && !seenNames.has(name.toLowerCase())) {
+        seenNames.add(name.toLowerCase());
+        // Try to find a nearby link for this filename
+        const parentLink = node.parentElement && node.parentElement.closest('a');
+        attachments.push({ name, url: parentLink ? parentLink.href : '' });
       }
     }
-  });
+  }
 
-  // 2. Grab ChatGPT-style file attachment cards
-  document.querySelectorAll(
-    '[data-testid="file-download-btn"], [class*="attachment"], [class*="file-card"], [class*="FileAttachment"], [class*="file_attachment"]'
-  ).forEach(card => {
-    const nameEl = card.querySelector('p, span, div');
-    const name = (nameEl ? nameEl.textContent : card.textContent).trim();
-    const link = card.querySelector('a[href]');
-    if (name && name.length < 200 && !attachments.find(f => f.name === name)) {
-      attachments.push({ name, url: link ? link.href : '' });
+  // Also catch any explicit <a download> or <a href> pointing to files
+  document.body.querySelectorAll('a[href], a[download]').forEach(a => {
+    const href = a.href || '';
+    const fname = (a.getAttribute('download') || href.split('/').pop().split('?')[0] || '').trim();
+    if (fname && FILE_NAME_PATTERN.test(fname) && !seenNames.has(fname.toLowerCase())) {
+      seenNames.add(fname.toLowerCase());
+      attachments.push({ name: fname, url: href });
     }
+    FILE_NAME_PATTERN.lastIndex = 0;
   });
 
-  // 3. Grab Claude-style file attachment elements
-  document.querySelectorAll('[data-testid*="attachment"], [class*="attachment-item"]').forEach(el => {
-    const name = el.textContent.trim().split('\n')[0];
-    const link = el.querySelector('a');
-    if (name && name.length < 200 && !attachments.find(f => f.name === name)) {
-      attachments.push({ name, url: link ? link.href : '' });
-    }
-  });
-
-  // Append attachment list to transcript text
+  // Build attachment text block to append to transcript
   let attachmentText = '';
   if (attachments.length > 0) {
-    attachmentText = '\n\n--- ATTACHED FILES ---\n';
+    attachmentText = '\n\n--- ATTACHED / REFERENCED FILES ---\n';
     attachments.forEach((f, i) => {
       attachmentText += `[File ${i + 1}] ${f.name}${f.url ? ' \u2014 ' + f.url : ''}\n`;
     });
-    attachmentText += '--- END ATTACHED FILES ---\n';
+    attachmentText += '--- END FILES ---\n';
   }
 
   return {
