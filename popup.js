@@ -123,7 +123,8 @@ function saveCapsule(data) {
 
 function loadCapsules() {
   chrome.storage.local.get(['capsules'], (result) => {
-    const capsules = result.capsules || [];
+    // Filter out any null/undefined entries from storage corruption
+    const capsules = (result.capsules || []).filter(c => c && c.id && c.timestamp);
     const list = document.getElementById('capsules-list');
     const count = document.getElementById('capsule-count');
     
