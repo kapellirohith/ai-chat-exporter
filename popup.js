@@ -97,44 +97,91 @@ function extractContext(mode) {
     }
   });
 
-  // ── CAPTURE FILE ATTACHMENTS ──
-  // Strategy: scan ALL text nodes on page for filename patterns.
-  // This works regardless of ChatGPT/Claude/Gemini's dynamic class names.
-  const FILE_NAME_PATTERN = /\b([\w\-. ]+\.(pdf|csv|docx?|xlsx?|pptx?|txt|json|xml|zip|mp3|mp4|mov|wav|py|js|ts|html|md|rtf))\b/gi;
+  // ════════════════════════════════════════════════════════════
+  // UNIVERSAL FILE ATTACHMENT DETECTOR — 3 strategies combined
+  // Works on ChatGPT, Gemini, Claude and any website
+  // ════════════════════════════════════════════════════════════
+  const FILE_EXT_LIST = 'pdf|csv|docx?|xlsx?|pptx?|txt|json|xml|zip|mp3|mp4|mov|wav|py|js|ts|html|md|rtf';
+  const FILE_FULL_RE  = new RegExp(`\\b([\\w\\-. ]+\\.(${FILE_EXT_LIST}))\\b`, 'gi');
+  const FILE_TYPE_RE  = new RegExp(`^(${FILE_EXT_LIST.toUpperCase().replace(/\\?/g,'?')})$`, 'i');
   const attachments = [];
   const seenNames = new Set();
 
-  // Walk every text node in the page
+  function addFile(name, url) {
+    const key = name.trim().toLowerCase();
+    if (key.length > 2 && key.length < 200 && !seenNames.has(key)) {
+      seenNames.add(key);
+      attachments.push({ name: name.trim(), url: url || '' });
+    }
+  }
+
+  // ── STRATEGY 1: aria-label & title attributes ──
+  // Catches patterns like aria-label="Remove report.pdf" or title="data.csv"
+  document.querySelectorAll('[aria-label],[title],[alt]').forEach(el => {
+    const attrs = [el.getAttribute('aria-label'), el.getAttribute('title'), el.getAttribute('alt')];
+    attrs.forEach(attr => {
+      if (!attr) return;
+      let m;
+      FILE_FULL_RE.lastIndex = 0;
+      while ((m = FILE_FULL_RE.exec(attr)) !== null) addFile(m[1], '');
+    });
+  });
+
+  // ── STRATEGY 2: File-type badge pairing (for Gemini/ChatGPT split rendering) ──
+  // Platforms show filename + separate "PDF" badge as two sibling elements.
+  // Walk every element, if its inner text is JUST a file type ("PDF","CSV" etc),
+  // find the enclosing card/container and extract the filename from its remaining text.
+  document.querySelectorAll('*').forEach(el => {
+    if (['SCRIPT','STYLE','NOSCRIPT','HEAD','META','LINK'].includes(el.tagName)) return;
+    const elText = (el.innerText || '').trim();
+    if (!FILE_TYPE_RE.test(elText)) return;     // Not a pure file-type badge
+    if (el.querySelectorAll('*').length > 5) return; // Skip complex containers
+
+    const fileType = elText.toLowerCase().replace(/x$/, '').replace(/x$/, ''); // normalize docx->doc etc
+    const ext = elText.toLowerCase();
+
+    // Walk up max 7 levels to find the card container
+    let container = el.parentElement;
+    for (let depth = 0; depth < 7 && container && container !== document.body; depth++) {
+      const raw = (container.innerText || '').trim();
+      if (raw.length < 3 || raw.length > 400) { container = container.parentElement; continue; }
+      // Strip the badge text to isolate the filename
+      const withoutBadge = raw.replace(new RegExp(`\\b${elText}\\b`, 'gi'), '').trim();
+      const firstLine = withoutBadge.split('\n')[0].trim();
+      if (firstLine.length > 2 && firstLine.length < 180) {
+        // Reconstruct full filename with extension
+        const hasExt = new RegExp(`\\.${FILE_EXT_LIST}$`, 'i').test(firstLine);
+        const fullName = hasExt ? firstLine : (firstLine + '.' + ext);
+        addFile(fullName, '');
+        break;
+      }
+      container = container.parentElement;
+    }
+  });
+
+  // ── STRATEGY 3: Full filename text scan (fallback) ──
+  // Catches cases where the full "filename.ext" appears directly in text nodes.
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
   let node;
   while ((node = walker.nextNode())) {
     const text = node.textContent || '';
-    let match;
-    FILE_NAME_PATTERN.lastIndex = 0;
-    while ((match = FILE_NAME_PATTERN.exec(text)) !== null) {
-      const name = match[1].trim();
-      // Skip very short/generic names and duplicates
-      if (name.length > 3 && name.length < 120 && !seenNames.has(name.toLowerCase())) {
-        seenNames.add(name.toLowerCase());
-        // Try to find a nearby link for this filename
-        const parentLink = node.parentElement && node.parentElement.closest('a');
-        attachments.push({ name, url: parentLink ? parentLink.href : '' });
-      }
+    let m;
+    FILE_FULL_RE.lastIndex = 0;
+    while ((m = FILE_FULL_RE.exec(text)) !== null) {
+      const parentLink = node.parentElement && node.parentElement.closest('a');
+      addFile(m[1], parentLink ? parentLink.href : '');
     }
   }
 
-  // Also catch any explicit <a download> or <a href> pointing to files
-  document.body.querySelectorAll('a[href], a[download]').forEach(a => {
+  // Catch explicit <a download> links
+  document.body.querySelectorAll('a[download],a[href]').forEach(a => {
     const href = a.href || '';
     const fname = (a.getAttribute('download') || href.split('/').pop().split('?')[0] || '').trim();
-    if (fname && FILE_NAME_PATTERN.test(fname) && !seenNames.has(fname.toLowerCase())) {
-      seenNames.add(fname.toLowerCase());
-      attachments.push({ name: fname, url: href });
-    }
-    FILE_NAME_PATTERN.lastIndex = 0;
+    FILE_FULL_RE.lastIndex = 0;
+    if (FILE_FULL_RE.test(fname)) addFile(fname, href);
   });
 
-  // Build attachment text block to append to transcript
+  // Build attachment section appended to transcript
   let attachmentText = '';
   if (attachments.length > 0) {
     attachmentText = '\n\n--- ATTACHED / REFERENCED FILES ---\n';
