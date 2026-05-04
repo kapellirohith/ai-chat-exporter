@@ -34,20 +34,35 @@ Note to AI: Await the user's next instructions based on this context.`;
           
           const img = document.createElement('img');
           img.src = src;
-          img.crossOrigin = 'anonymous';
+          img.crossOrigin = 'anonymous'; // helps with canvas rendering
           
           const copyBtn = document.createElement('button');
           copyBtn.textContent = 'Copy Image';
-          copyBtn.style.cssText = 'position:absolute;bottom:8px;left:50%;transform:translateX(-50%);padding:4px 8px;background:var(--primary);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;opacity:0.8;';
+          copyBtn.style.position = 'absolute';
+          copyBtn.style.bottom = '8px';
+          copyBtn.style.left = '50%';
+          copyBtn.style.transform = 'translateX(-50%)';
+          copyBtn.style.padding = '4px 8px';
+          copyBtn.style.background = 'var(--primary)';
+          copyBtn.style.color = 'white';
+          copyBtn.style.border = 'none';
+          copyBtn.style.borderRadius = '4px';
+          copyBtn.style.fontSize = '11px';
+          copyBtn.style.cursor = 'pointer';
+          copyBtn.style.opacity = '0.8';
           
           copyBtn.addEventListener('click', async () => {
             try {
+              // Fetch the image as a blob to write to clipboard
               const response = await fetch(src);
               const blob = await response.blob();
-              await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+              await navigator.clipboard.write([
+                new ClipboardItem({ [blob.type]: blob })
+              ]);
               copyBtn.textContent = 'Copied!';
               setTimeout(() => copyBtn.textContent = 'Copy Image', 2000);
             } catch (err) {
+              console.error('Failed to copy image', err);
               copyBtn.textContent = 'Failed';
               setTimeout(() => copyBtn.textContent = 'Copy Image', 2000);
             }
@@ -57,39 +72,6 @@ Note to AI: Await the user's next instructions based on this context.`;
           wrapper.appendChild(copyBtn);
           imgContainer.appendChild(wrapper);
         });
-      }
-
-      // ── RENDER FILE ATTACHMENTS ──
-      const fileSection = document.getElementById('file-section');
-      const fileContainer = document.getElementById('file-container');
-      const fileSectionLabel = document.getElementById('file-section-label');
-
-      if (ctx.attachments && ctx.attachments.length > 0) {
-        const FILE_ICONS = {
-          pdf: '📄', csv: '📊', doc: '📝', docx: '📝',
-          xls: '📊', xlsx: '📊', ppt: '📊', pptx: '📊',
-          txt: '📋', json: '📋', xml: '📋', md: '📋',
-          zip: '🗂', py: '💻', js: '💻', ts: '💻',
-          mp3: '🎵', mp4: '🎬', mov: '🎬', wav: '🎵',
-          html: '🌐', default: '📁'
-        };
-
-        fileSectionLabel.textContent = `Attached Files (${ctx.attachments.length})`;
-        fileSection.style.display = 'block';
-        fileContainer.innerHTML = '';
-
-        ctx.attachments.forEach(f => {
-          const ext = (f.name.split('.').pop() || '').toLowerCase();
-          const icon = FILE_ICONS[ext] || FILE_ICONS.default;
-          const chip = document.createElement('div');
-          chip.className = 'file-chip' + (f.url ? ' clickable' : '');
-          chip.title = f.name + (f.url ? '\n' + f.url : '');
-          chip.textContent = icon + '  ' + f.name;
-          if (f.url) chip.addEventListener('click', () => window.open(f.url, '_blank'));
-          fileContainer.appendChild(chip);
-        });
-      } else {
-        fileSection.style.display = 'none';
       }
       
       // Try to auto-copy
