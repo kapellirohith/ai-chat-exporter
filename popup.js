@@ -97,12 +97,59 @@ function extractContext(mode) {
     }
   });
 
+  // ── CAPTURE FILE ATTACHMENTS (PDF, CSV, DOCX, XLSX, TXT, PPTX etc.) ──
+  const FILE_EXTENSIONS = /\.(pdf|csv|docx?|xlsx?|pptx?|txt|json|xml|zip|mp3|mp4|mov|png|jpg|jpeg|gif|webp)(\?.*)?$/i;
+  const attachments = [];
+
+  // 1. Grab any <a> links pointing to downloadable files
+  document.body.querySelectorAll('a[href]').forEach(a => {
+    const href = a.href;
+    const label = (a.textContent || a.getAttribute('download') || '').trim();
+    if (FILE_EXTENSIONS.test(href) || a.hasAttribute('download')) {
+      if (!attachments.find(f => f.url === href)) {
+        attachments.push({ name: label || href.split('/').pop(), url: href });
+      }
+    }
+  });
+
+  // 2. Grab ChatGPT-style file attachment cards
+  document.querySelectorAll(
+    '[data-testid="file-download-btn"], [class*="attachment"], [class*="file-card"], [class*="FileAttachment"], [class*="file_attachment"]'
+  ).forEach(card => {
+    const nameEl = card.querySelector('p, span, div');
+    const name = (nameEl ? nameEl.textContent : card.textContent).trim();
+    const link = card.querySelector('a[href]');
+    if (name && name.length < 200 && !attachments.find(f => f.name === name)) {
+      attachments.push({ name, url: link ? link.href : '' });
+    }
+  });
+
+  // 3. Grab Claude-style file attachment elements
+  document.querySelectorAll('[data-testid*="attachment"], [class*="attachment-item"]').forEach(el => {
+    const name = el.textContent.trim().split('\n')[0];
+    const link = el.querySelector('a');
+    if (name && name.length < 200 && !attachments.find(f => f.name === name)) {
+      attachments.push({ name, url: link ? link.href : '' });
+    }
+  });
+
+  // Append attachment list to transcript text
+  let attachmentText = '';
+  if (attachments.length > 0) {
+    attachmentText = '\n\n--- ATTACHED FILES ---\n';
+    attachments.forEach((f, i) => {
+      attachmentText += `[File ${i + 1}] ${f.name}${f.url ? ' \u2014 ' + f.url : ''}\n`;
+    });
+    attachmentText += '--- END ATTACHED FILES ---\n';
+  }
+
   return {
     id: Date.now().toString(),
     title: document.title,
     url: window.location.href,
-    text: textContent, // grab everything
-    images: images, // grab all images
+    text: textContent + attachmentText,
+    images: images,
+    attachments: attachments,
     timestamp: new Date().toISOString()
   };
 }
